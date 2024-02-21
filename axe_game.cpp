@@ -14,8 +14,8 @@ struct Axe {
 };
 
 // Window dimensions
-    const int width{1800};
-    const int height{900};
+const int width{1800};
+const int height{900};
 
 //Main functions
 void UpdatePlayer(Player& player);
