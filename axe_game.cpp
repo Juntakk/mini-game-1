@@ -1,109 +1,111 @@
 #include "raylib.h"
+#include "raymath.h"
+
+struct Player {
+    Vector2 position;
+    float radius;
+    Color color;
+};
+
+struct Axe {
+    Rectangle rect;
+    Vector2 speed;
+    Color color;
+};
+
+// Window dimensions
+    const int width{1800};
+    const int height{900};
+
+//Main functions
+void UpdatePlayer(Player& player);
+void UpdateAxes(Axe& axe);
+bool CheckCollision(Player& player, Axe& Axe);
 
 int main()
 {
-    // Window dimensions
-    int width{800};
-    int height{450};
-    Color windowColor{DARKGRAY};
-    InitWindow(width, height, "Game");
+    InitWindow(width, height, "Avoid the obstacles");
+    Vector2 playerPos = {static_cast<float>(height)/2, static_cast<float>(width)/10};
 
-    // Circle coordinates
-    int circle_x{200};
-    int circle_y{200};
-    int circle_radius{25};
-    Color circle_color{BLUE};
+    Player player = {
+        playerPos,
+        30,
+        BLACK
+    };
 
-    // Circle edge
-    int l_circle_x{circle_x - circle_radius};
-    int r_circle_x{circle_x + circle_radius};
-    int u_circle_y{circle_y - circle_radius};
-    int b_circle_y{circle_y + circle_radius};
+    const int num_axes = 4;
+    Axe axes[num_axes];
 
-    // Axe coordinates
-    int axe_x{400};
-    int axe_y{0};
-    int axe_length{50};
-    Color axe_color{RED};
-
-    // Axe edges
-    int l_axe_x{axe_x};
-    int r_axe_x{axe_x + axe_length};
-    int u_axe_y{axe_y};
-    int b_axe_y{axe_y + axe_length};
-
-    bool collision_with_axe =
-        (b_axe_y >= u_circle_y) &&
-        (u_axe_y <= b_circle_y) &&
-        (l_axe_x <= r_circle_x) &&
-        (r_axe_x >= l_circle_x);
-
-    int direction{10};
+    for (int i = 0; i < num_axes; ++i) {
+        axes[i].rect.width = 80;
+        axes[i].rect.height = 20;
+        axes[i].rect.x = GetRandomValue(0, width - axes[i].rect.width);
+        axes[i].rect.y = GetRandomValue(0, height - axes[i].rect.height);
+        axes[i].speed.x = GetRandomValue(-3, 3);
+        axes[i].speed.y = GetRandomValue(-3, 3);
+        axes[i].color = RED;
+    }
 
     SetTargetFPS(60);
+
     while (!WindowShouldClose())
     {
-        BeginDrawing();
-        ClearBackground(WHITE);
+        UpdatePlayer(player);
 
-        if (collision_with_axe)
+        for (int i = 0; i < num_axes; i++)
         {
-            DrawText("Game Over", 400, 200, 20, axe_color);
+            UpdateAxes(axes[i]);
+
+            if(CheckCollision(player, axes[i])){
+                player.position = playerPos;
+            }
         }
-        else
+        
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+
+        //Draw player
+        DrawCircleV(player.position,player.radius, player.color);
+
+        //Draw axes
+        for (int i = 0; i < num_axes; i++)
         {
-            // Game logic start
-
-            // Update edges
-            l_circle_x = circle_x - circle_radius;
-            r_circle_x = circle_x + circle_radius;
-            u_circle_y = circle_y - circle_radius;
-            b_circle_y = circle_y + circle_radius;
-            l_axe_x = axe_x;
-            r_axe_x = axe_x + axe_length;
-            u_axe_y = axe_y;
-            b_axe_y = axe_y + axe_length;
-
-            // Update collision with axe
-            collision_with_axe =
-                (b_axe_y >= u_circle_y) &&
-                (b_circle_y >= u_axe_y) &&
-                (l_axe_x <= r_circle_x) &&
-                (r_axe_x >= l_circle_x);
-
-            DrawRectangle(0, 0, width, height, windowColor);
-            DrawCircle(circle_x, circle_y, circle_radius, circle_color);
-            DrawRectangle(axe_x, axe_y, axe_length, axe_length, RED);
-
-            // Move the axe
-            axe_y += direction;
-            if (axe_y > height - axe_length || axe_y < 0)
-            {
-                direction = -direction;
-            }
-
-            if (IsKeyDown(KEY_D) && circle_x < width - circle_radius)
-            {
-                circle_x += 10;
-            }
-
-            if (IsKeyDown(KEY_A) && circle_x > 0 + circle_radius)
-            {
-                circle_x -= 10;
-            }
-
-            if (IsKeyDown(KEY_W) && circle_y > 0 + circle_radius)
-            {
-                circle_y -= 10;
-            }
-
-            if (IsKeyDown(KEY_S) && circle_y < height - circle_radius)
-            {
-                circle_y += 10;
-            }
-            // Game logic ends
+            DrawRectangleRec(axes[i].rect, axes[i].color);
         }
 
         EndDrawing();
     }
+}
+
+void UpdatePlayer(Player& player){
+
+    //Move player
+    if (IsKeyDown(KEY_RIGHT)) player.position.x += 5;
+    if (IsKeyDown(KEY_LEFT)) player.position.x -= 5;
+    if (IsKeyDown(KEY_DOWN)) player.position.y += 5;
+    if (IsKeyDown(KEY_UP)) player.position.y -= 5;
+
+    // Ensure player stays within the screen bounds
+    player.position.x = Clamp(player.position.x, player.radius, width - player.radius);
+    player.position.y = Clamp(player.position.y, player.radius, height - player.radius);
+}
+
+void UpdateAxes(Axe& Axe){
+    // Move the Axes
+    Axe.rect.x += Axe.speed.x;
+    Axe.rect.y += Axe.speed.y;
+
+    // Bounce off the screen edges
+    if ((Axe.rect.x <= 0) || (Axe.rect.x >= width - Axe.rect.width)) Axe.speed.x *= -1;
+    if ((Axe.rect.y <= 0) || (Axe.rect.y >= height - Axe.rect.height)) Axe.speed.y *= -1;
+}
+
+bool CheckCollision(const Player& player, const Axe& axe){
+    Vector2 closestPoint;
+    closestPoint.x = Clamp(player.position.x, axe.rect.x, axe.rect.x + axe.rect.width);
+    closestPoint.y = Clamp(player.position.y, axe.rect.y, axe.rect.y + axe.rect.height);
+
+    float distance = Vector2Distance(player.position, closestPoint);
+
+    return distance < player.radius;
 }
