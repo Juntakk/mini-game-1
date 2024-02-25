@@ -6,6 +6,9 @@ struct Player
     Vector2 position;
     float radius;
     Color color;
+    int hp;
+    int lvl;
+    int exp;
 };
 
 struct Axe
@@ -34,17 +37,25 @@ bool CheckCollision(Player &player, Axe &axe);
 void UpdateBullets(Bullet bullets[], int maxBullets);
 void DrawBullets(const Bullet bullets[], int maxBullets);
 void SpawnBullets(Bullet bullets[], int maxBullets, float &bulletTimer, float bulletInterval, Player player);
+void HandleBulletAxeCollision(Bullet &bullet, Axe &axe, Player &player, Sound &sound);
+bool CheckBulletAxeCollision(const Bullet &bullet, const Axe &axe);
 
 int main()
 {
     InitWindow(width, height, "Avoid the obstacles");
-    Vector2 playerPos = {static_cast<float>(height) / 2, static_cast<float>(width) / 10};
+    InitAudioDevice();
+
+    Vector2 playerPos = {height / 2, width / 2};
 
     Player player = {
         playerPos,
         20,
-        BLACK};
+        BLACK,
+        100,
+        1,
+        0};
 
+    Sound sound = LoadSound("sounds/level_up.wav");
     const int num_axes = 40;
     Axe axes[num_axes];
     const int maxBullets = 4;
@@ -72,10 +83,25 @@ int main()
         UpdateBullets(bullets, maxBullets);
         SpawnBullets(bullets, maxBullets, bulletTimer, bulletInterval, player);
 
+        for (int i = 0; i < maxBullets; ++i)
+        {
+            if (bullets[i].active)
+            {
+                for (int j = 0; j < num_axes; ++j)
+                {
+                    if (CheckBulletAxeCollision(bullets[i], axes[j]))
+                    {
+                        HandleBulletAxeCollision(bullets[i], axes[j], player, sound);
+                    }
+                }
+            }
+        }
+
         for (int i = 0; i < num_axes; i++)
         {
             UpdateAxes(axes[i]);
 
+            // Player getting hit
             if (CheckCollision(player, axes[i]))
             {
                 player.position = playerPos;
@@ -84,6 +110,11 @@ int main()
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
+
+        // Draw UI
+        DrawText(TextFormat("Level: %d", player.lvl), 10, 10, 30, DARKGRAY);
+        DrawText(TextFormat("Experience: %d", player.exp), 10, 40, 30, DARKGRAY);
+        DrawText(TextFormat("HP: %d", player.hp), 10, 70, 30, DARKGRAY);
 
         // Draw player
         DrawCircleV(player.position, player.radius, player.color);
@@ -96,8 +127,12 @@ int main()
 
         EndDrawing();
     }
+    UnloadSound(sound);
+    CloseAudioDevice();
+    CloseWindow();
 }
 
+// Player movement
 void UpdatePlayer(Player &player, Bullet bullets[], int maxBullets)
 {
     // Move player with arrow keys
@@ -115,6 +150,7 @@ void UpdatePlayer(Player &player, Bullet bullets[], int maxBullets)
     player.position.y = Clamp(player.position.y, player.radius, height - player.radius);
 }
 
+// Enemy movement
 void UpdateAxes(Axe &axe)
 {
     // Move the Axes
@@ -128,6 +164,7 @@ void UpdateAxes(Axe &axe)
         axe.speed.y *= -1;
 }
 
+// Collision between player and enemy
 bool CheckCollision(Player &player, Axe &axe)
 {
     Vector2 closestPoint;
@@ -139,6 +176,7 @@ bool CheckCollision(Player &player, Axe &axe)
     return distance < player.radius;
 }
 
+// Bullet movement
 void UpdateBullets(Bullet bullets[], int maxBullets)
 {
     for (int i = 0; i < maxBullets; ++i)
@@ -158,6 +196,7 @@ void UpdateBullets(Bullet bullets[], int maxBullets)
     }
 }
 
+// Bullet aesthetic
 void DrawBullets(const Bullet bullets[], int maxBullets)
 {
     for (int i = 0; i < maxBullets; ++i)
@@ -169,6 +208,7 @@ void DrawBullets(const Bullet bullets[], int maxBullets)
     }
 }
 
+// Bullet spawn
 void SpawnBullets(Bullet bullets[], int maxBullets, float &bulletTimer, float bulletInterval, Player player)
 {
     bulletTimer += GetFrameTime();
@@ -189,5 +229,32 @@ void SpawnBullets(Bullet bullets[], int maxBullets, float &bulletTimer, float bu
         }
 
         bulletTimer = 0.0f;
+    }
+}
+
+// Collision between bullet and enemy
+bool CheckBulletAxeCollision(const Bullet &bullet, const Axe &axe)
+{
+    // Check if the bullet's position is inside the rectangle of the axe
+    return (bullet.position.x >= axe.rect.x &&
+            bullet.position.x <= axe.rect.x + axe.rect.width &&
+            bullet.position.y >= axe.rect.y &&
+            bullet.position.y <= axe.rect.y + axe.rect.height);
+}
+void HandleBulletAxeCollision(Bullet &bullet, Axe &axe, Player &player, Sound &sound)
+{
+    // Deactivate the bullet
+    bullet.active = false;
+
+    // Deactivate the axe
+    axe.rect.x = -100; // Move axe off-screen to "deactivate" it
+
+    // Exp gain
+    player.exp += 10;
+    if (player.exp == 100)
+    {
+        player.exp = 0;
+        player.lvl += 1;
+        PlaySound(sound);
     }
 }
