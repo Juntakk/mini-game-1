@@ -131,6 +131,7 @@ int main()
 }
 
 // Player
+
 void UpdatePlayer(Player &player, Bullet bullets[], int maxBullets, float dashDistance)
 {
     Vector2 movementInput = {0, 0};
