@@ -1,5 +1,9 @@
 #include "raylib.h"
 #include "raymath.h"
+#include <chrono>
+
+// Global or player-specific timer
+std::chrono::steady_clock::time_point lastCollisionTime = std::chrono::steady_clock::now();
 
 struct Player
 {
@@ -48,6 +52,10 @@ bool CheckBulletEnemyCollision(const Bullet &bullet, const Enemy &enemy);
 void HandleBulletEnemyCollision(Bullet &bullet, Enemy &enemy);
 void TriggerBulletEnemyCollision(Player &player, Bullet bullets[], Enemy enemies[], int maxBullets, int maxEnemies);
 void HandleExp(Player &player);
+bool CheckPlayerEnemyCollision(Player &player, const Enemy &enemy);
+void TriggerPlayerEnemyCollision(Player &player, Enemy enemies[], size_t enemyCount);
+void HandleEnemyPlayerCollision(Player &player, Enemy enemies[]);
+void ResetGame(Player &player, Enemy enemies[], int maxEnemies, Bullet bullets[], int maxBullets, int &currentLevel);
 
 // MAIN
 int main()
@@ -101,7 +109,7 @@ int main()
 
         // Bullets
         DrawBullets(bullets, maxBullets, bulletRadius);
-        SpawnBullets(bullets, maxBullets, bulletTimer, bulletInterval, player);
+        // SpawnBullets(bullets, maxBullets, bulletTimer, bulletInterval, player);
         UpdateBullets(bullets, maxBullets);
 
         // Player
@@ -115,12 +123,24 @@ int main()
 
         // Collisions
         TriggerBulletEnemyCollision(player, bullets, enemies, maxBullets, maxEnemies);
+        TriggerPlayerEnemyCollision(player, enemies, maxEnemies);
 
         // Draw UI
         DrawText(TextFormat("Level: %d", player.lvl), 10, 10, 30, ORANGE);
         DrawText(TextFormat("Experience: %d", player.exp), 10, 40, 30, ORANGE);
         DrawText(TextFormat("HP: %d", player.hp), 10, 70, 30, ORANGE);
         DrawText(TextFormat("Stage: %d", currentLevel), 800, 40, 40, BLACK);
+
+        if (player.hp <= 0)
+        {
+            DrawText("GAME OVER", screenWidth / 2 - 150, screenHeight / 2 - 30, 60, RED);
+            DrawText("Press R to Restart", screenWidth / 2 - 200, screenHeight / 2 + 40, 40, DARKGRAY);
+
+            if (IsKeyPressed(KEY_R))
+            {
+                ResetGame(player, enemies, maxEnemies, bullets, maxBullets, currentLevel);
+            }
+        }
 
         EndDrawing();
     }
@@ -276,7 +296,39 @@ void TriggerBulletEnemyCollision(Player &player, Bullet bullets[], Enemy enemies
         }
     }
 }
+bool CheckPlayerEnemyCollision(Player &player, const Enemy &enemy)
+{
+    return (CheckCollisionCircles(player.position, player.radius, enemy.position, enemy.radius));
+}
+void TriggerPlayerEnemyCollision(Player &player, Enemy enemies[], size_t enemyCount)
+{
+    auto currentTime = std::chrono::steady_clock::now();
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastCollisionTime).count();
 
+    if (elapsedTime >= 1000) // 1000 ms = 1 second
+    {
+        for (size_t i = 0; i < enemyCount; ++i)
+        {
+            if (CheckPlayerEnemyCollision(player, enemies[i]))
+            {
+                HandleEnemyPlayerCollision(player, enemies);
+
+                // Update the last collision time
+                lastCollisionTime = currentTime;
+                break; // Exit after handling one collision
+            }
+        }
+    }
+}
+
+void HandleEnemyPlayerCollision(Player &player, Enemy enemies[])
+{
+    player.hp -= 50;
+    if (player.hp <= 0)
+    {
+        player.hp = 0;
+    }
+}
 // Bullets
 void UpdateBullets(Bullet bullets[], int maxBullets)
 {
@@ -331,4 +383,21 @@ void SpawnBullets(Bullet bullets[], int maxBullets, float &bulletTimer, float bu
 
         bulletTimer = 0.0f;
     }
+}
+
+void ResetGame(Player &player, Enemy enemies[], int maxEnemies, Bullet bullets[], int maxBullets, int &currentLevel)
+{
+    player.hp = 100;
+    player.exp = 0;
+    player.lvl = 1;
+    player.position = {screenWidth / 2, screenHeight / 2};
+
+    InitiateEnemies(enemies, maxEnemies);
+
+    for (int i = 0; i < maxBullets; ++i)
+    {
+        bullets[i].active = false;
+    }
+
+    currentLevel = 1;
 }
