@@ -109,7 +109,7 @@ int main()
 
         // Bullets
         DrawBullets(bullets, maxBullets, bulletRadius);
-        // SpawnBullets(bullets, maxBullets, bulletTimer, bulletInterval, player);
+        SpawnBullets(bullets, maxBullets, bulletTimer, bulletInterval, player);
         UpdateBullets(bullets, maxBullets);
 
         // Player
